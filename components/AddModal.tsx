@@ -1,17 +1,19 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from './StoreContext';
-import { getSmartSubdivision, processSmartInput } from '../services/geminiService';
+// Fix: Removed incorrect import from non-existent module
 import DrawingCanvas from './DrawingCanvas';
 import { Plus, Calendar, CheckSquare, FileText, DollarSign, ArrowLeft, Loader2, List, Edit3, TrendingDown, TrendingUp, Clock, X, AlertCircle, Mic, MicOff, Sparkles, Send, Trash2, Check } from 'lucide-react';
-import { Priority } from '../types';
+// Fix: Import Priority from constants.ts since types.ts is empty
+import { Priority } from '../constants';
 
 type Step = 'main' | 'smart' | 'note-sub' | 'finance-sub' | 'event-form' | 'task-form' | 'note-text-form' | 'note-checklist-form' | 'note-drawing-form' | 'finance-spending-form' | 'finance-earning-form';
 
 const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
-  const { addNote, addTask, addEvent, addFinance } = useStore();
+  // Fix: Destructure AI functions from the store
+  const { addNote, addTask, addEvent, addFinance, aiBreakdown, aiSmartInput } = useStore();
   const [step, setStep] = useState<Step>('main');
   const [loading, setLoading] = useState(false);
   const [newSubTaskInput, setNewSubTaskInput] = useState('');
@@ -78,7 +80,8 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
   const handleSmartSubmit = async () => {
     if (!smartInputText.trim()) return;
     setLoading(true);
-    const result = await processSmartInput(smartInputText);
+    // Fix: Use aiSmartInput from store instead of defunct service
+    const result = await aiSmartInput(smartInputText);
     setLoading(false);
 
     if (result) {
@@ -121,7 +124,8 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
   const handleSmartDivide = async () => {
     if (!formData.title) return;
     setLoading(true);
-    const subtasks = await getSmartSubdivision(formData.title);
+    // Fix: Use aiBreakdown from store instead of defunct service
+    const subtasks = await aiBreakdown(formData.title);
     setFormData((prev: any) => ({
       ...prev,
       subTasks: [

@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useStore } from './StoreContext';
-import { Calendar, CheckSquare, FileText, DollarSign, Clock, ChevronRight, GripVertical, Check, X, AlertCircle, Edit2 } from 'lucide-react';
+import { Calendar, CheckSquare, FileText, DollarSign, Clock, ChevronRight, GripVertical, Check, X, AlertCircle, Edit2, List, Image as ImageIcon } from 'lucide-react';
 
 const Dashboard: React.FC<{ onNavigate: (view: string) => void }> = ({ onNavigate }) => {
   const { state, updateSettings } = useStore();
@@ -259,18 +259,40 @@ const Dashboard: React.FC<{ onNavigate: (view: string) => void }> = ({ onNavigat
                 </div>
                 {!isReordering && <ChevronRight className="w-5 h-5 text-gray-300 dark:text-gray-700 group-hover:text-blue-500" />}
               </div>
-              <div className="space-y-3">
-                {state.notes.slice(0, 2).map(note => (
+              <div className="space-y-4">
+                {[...state.notes].sort((a,b) => b.createdAt - a.createdAt).slice(0, 2).map(note => (
                   <div 
                     key={note.id} 
-                    className="p-4 rounded-[1.5rem] bg-gray-50/50 dark:bg-white/5 border border-transparent group-hover:border-gray-100 dark:group-hover:border-gray-800 text-left"
+                    className="p-4 rounded-[1.5rem] bg-gray-50/50 dark:bg-white/5 border border-transparent group-hover:border-gray-100 dark:group-hover:border-gray-800 text-left overflow-hidden transition-colors"
                   >
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      {note.type === 'checklist' ? <List className="w-3 h-3 text-amber-500" /> : note.type === 'drawing' ? <ImageIcon className="w-3 h-3 text-amber-500" /> : <FileText className="w-3 h-3 text-amber-500" />}
                       <div className="font-black text-[10px] truncate text-gray-400 dark:text-gray-500 uppercase tracking-widest">{note.title || 'Untitled'}</div>
                     </div>
-                    <div className="text-[11px] font-medium text-gray-600 dark:text-gray-400 line-clamp-2 leading-relaxed">
-                      {note.content.startsWith('[') ? 'Checklist Note' : note.content}
-                    </div>
+
+                    {note.type === 'drawing' ? (
+                      <div className="h-20 bg-white dark:bg-gray-800 rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700 flex items-center justify-center">
+                        <img src={note.content} alt="Note Preview" className="h-full object-contain" />
+                      </div>
+                    ) : note.type === 'checklist' ? (
+                      <div className="space-y-1 mt-1">
+                        {JSON.parse(note.content).slice(0, 3).map((item: any) => (
+                          <div key={item.id} className="flex items-center gap-2 text-[11px] font-bold">
+                            <div className={`w-2.5 h-2.5 rounded-[3px] border ${item.completed ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300 dark:border-gray-600'}`}>
+                              {item.completed && <Check className="w-2 h-2 text-white" strokeWidth={4} />}
+                            </div>
+                            <span className={`truncate ${item.completed ? 'line-through text-gray-400 opacity-50' : 'text-gray-600 dark:text-gray-400'}`}>{item.title}</span>
+                          </div>
+                        ))}
+                        {JSON.parse(note.content).length > 3 && (
+                          <div className="text-[9px] font-black text-gray-300 dark:text-gray-600 uppercase mt-1">+{JSON.parse(note.content).length - 3} more items</div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-[11px] font-medium text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed">
+                        {note.content}
+                      </div>
+                    )}
                   </div>
                 ))}
                 {state.notes.length === 0 && (

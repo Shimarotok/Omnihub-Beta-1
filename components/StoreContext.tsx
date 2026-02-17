@@ -1,7 +1,10 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AppState, Note, Task, CalendarEvent, FinanceEntry, AppSettings } from '../types';
+import { AppState, Note, Task, CalendarEvent, FinanceEntry, AppSettings } from '../constants';
 import { INITIAL_SETTINGS } from '../constants';
+import { GoogleGenAI, Type } from "@google/genai";
+
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 interface StoreContextType {
   state: AppState;
@@ -16,7 +19,8 @@ interface StoreContextType {
   addFinance: (entry: Omit<FinanceEntry, 'id'>) => void;
   deleteFinance: (id: string) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
-  syncGoogleCalendar: () => void;
+  aiBreakdown: (title: string) => Promise<string[]>;
+  aiSmartInput: (text: string) => Promise<any>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
@@ -24,110 +28,75 @@ const StoreContext = createContext<StoreContextType | undefined>(undefined);
 export const StoreProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AppState>(() => {
     const saved = localStorage.getItem('omnihub_state');
-    if (saved) return JSON.parse(saved);
-    return {
-      notes: [],
-      tasks: [],
-      events: [],
-      finances: [],
-      settings: INITIAL_SETTINGS,
-    };
+    return saved ? JSON.parse(saved) : { notes: [], tasks: [], events: [], finances: [], settings: INITIAL_SETTINGS };
   });
 
-  useEffect(() => {
-    localStorage.setItem('omnihub_state', JSON.stringify(state));
-  }, [state]);
+  useEffect(() => { localStorage.setItem('omnihub_state', JSON.stringify(state)); }, [state]);
 
-  const addNote = (note: Omit<Note, 'id' | 'createdAt'>) => {
-    const newNote: Note = { ...note, id: crypto.randomUUID(), createdAt: Date.now() };
-    setState(prev => ({ ...prev, notes: [newNote, ...prev.notes] }));
+  const addNote = (note: any) => setState(p => ({ ...p, notes: [{ ...note, id: crypto.randomUUID(), createdAt: Date.now() }, ...p.notes] }));
+  const deleteNote = (id: string) => setState(p => ({ ...p, notes: p.notes.filter(n => n.id !== id) }));
+  const addTask = (task: any) => setState(p => ({ ...p, tasks: [{ ...task, id: crypto.randomUUID(), completed: false }, ...p.tasks] }));
+  const toggleTask = (id: string) => setState(p => ({
+    ...p, tasks: p.tasks.map(t => t.id === id ? { ...t, completed: !t.completed, subTasks: (t.subTasks || []).map(s => ({ ...s, completed: !t.completed })) } : t)
+  }));
+  const toggleSubtask = (tId: string, sId: string) => setState(p => ({
+    ...p, tasks: p.tasks.map(t => {
+      if (t.id !== tId) return t;
+      const subs = t.subTasks.map(s => s.id === sId ? { ...s, completed: !s.completed } : s);
+      return { ...t, subTasks: subs, completed: subs.every(s => s.completed) };
+    })
+  }));
+  const deleteTask = (id: string) => setState(p => ({ ...p, tasks: p.tasks.filter(t => t.id !== id) }));
+  const addEvent = (ev: any) => setState(p => ({ ...p, events: [{ ...ev, id: crypto.randomUUID() }, ...p.events] }));
+  const deleteEvent = (id: string) => setState(p => ({ ...p, events: p.events.filter(e => e.id !== id) }));
+  const addFinance = (f: any) => setState(p => ({ ...p, finances: [{ ...f, id: crypto.randomUUID() }, ...p.finances] }));
+  const deleteFinance = (id: string) => setState(p => ({ ...p, finances: p.finances.filter(f => f.id !== id) }));
+  const updateSettings = (upd: any) => setState(p => ({ ...p, settings: { ...p.settings, ...upd } }));
+
+  const aiBreakdown = async (taskTitle: string) => {
+    try {
+      const resp = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: `Break down: "${taskTitle}" into 3-5 subtasks.`,
+        config: { responseMimeType: "application/json", responseSchema: { type: Type.OBJECT, properties: { subtasks: { type: Type.ARRAY, items: { type: Type.STRING } } }, required: ["subtasks"] } }
+      });
+      return JSON.parse(resp.text).subtasks || [];
+    } catch { return []; }
   };
 
-  const deleteNote = (id: string) => {
-    setState(prev => ({ ...prev, notes: prev.notes.filter(n => n.id !== id) }));
-  };
-
-  const addTask = (task: Omit<Task, 'id' | 'completed'>) => {
-    const newTask: Task = { ...task, id: crypto.randomUUID(), completed: false };
-    setState(prev => ({ ...prev, tasks: [newTask, ...prev.tasks] }));
-  };
-
-  const toggleTask = (id: string) => {
-    setState(prev => ({
-      ...prev,
-      tasks: prev.tasks.map(t => {
-        if (t.id === id) {
-          const newCompleted = !t.completed;
-          // If manually completing main task, complete all subtasks
-          return {
-            ...t,
-            completed: newCompleted,
-            subTasks: t.subTasks.map(st => ({ ...st, completed: newCompleted }))
-          };
+  const aiSmartInput = async (input: string) => {
+    try {
+      const resp = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: `Analyze: "${input}". Today is ${new Date().toISOString()}. Output JSON with type (task/event/note/finance).`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              type: { type: Type.STRING, enum: ['task', 'event', 'note', 'finance'] },
+              title: { type: Type.STRING },
+              description: { type: Type.STRING },
+              date: { type: Type.STRING },
+              startTime: { type: Type.STRING },
+              amount: { type: Type.NUMBER },
+              financeType: { type: Type.STRING, enum: ['spending', 'earning'] },
+              priority: { type: Type.STRING, enum: ['low', 'medium', 'high'] },
+              subtasks: { type: Type.ARRAY, items: { type: Type.STRING } }
+            },
+            required: ["type", "title"]
+          }
         }
-        return t;
-      })
-    }));
+      });
+      return JSON.parse(resp.text);
+    } catch { return null; }
   };
 
-  const toggleSubtask = (taskId: string, subtaskId: string) => {
-    setState(prev => ({
-      ...prev,
-      tasks: prev.tasks.map(t => {
-        if (t.id === taskId) {
-          const updatedSubTasks = t.subTasks.map(st => 
-            st.id === subtaskId ? { ...st, completed: !st.completed } : st
-          );
-          // If all subtasks are now completed, the main task should be completed too
-          const allCompleted = updatedSubTasks.length > 0 && updatedSubTasks.every(st => st.completed);
-          return { ...t, subTasks: updatedSubTasks, completed: allCompleted };
-        }
-        return t;
-      })
-    }));
-  };
-
-  const deleteTask = (id: string) => {
-    setState(prev => ({ ...prev, tasks: prev.tasks.filter(t => t.id !== id) }));
-  };
-
-  const addEvent = (event: Omit<CalendarEvent, 'id'>) => {
-    const newEvent: CalendarEvent = { ...event, id: crypto.randomUUID() };
-    setState(prev => ({ ...prev, events: [newEvent, ...prev.events] }));
-  };
-
-  const deleteEvent = (id: string) => {
-    setState(prev => ({ ...prev, events: prev.events.filter(e => e.id !== id) }));
-  };
-
-  const addFinance = (entry: Omit<FinanceEntry, 'id'>) => {
-    const newEntry: FinanceEntry = { ...entry, id: crypto.randomUUID() };
-    setState(prev => ({ ...prev, finances: [newEntry, ...prev.finances] }));
-  };
-
-  const deleteFinance = (id: string) => {
-    setState(prev => ({ ...prev, finances: prev.finances.filter(f => f.id !== id) }));
-  };
-
-  const updateSettings = (updates: Partial<AppSettings>) => {
-    setState(prev => ({ ...prev, settings: { ...prev.settings, ...updates } }));
-  };
-
-  const syncGoogleCalendar = () => {
-    alert("Syncing with Google Calendar... (Simulation)");
-  };
-
-  return (
-    <StoreContext.Provider value={{
-      state, addNote, deleteNote, addTask, toggleTask, toggleSubtask, deleteTask, addEvent, deleteEvent, addFinance, deleteFinance, updateSettings, syncGoogleCalendar
-    }}>
-      {children}
-    </StoreContext.Provider>
-  );
+  return <StoreContext.Provider value={{ state, addNote, deleteNote, addTask, toggleTask, toggleSubtask, deleteTask, addEvent, deleteEvent, addFinance, deleteFinance, updateSettings, aiBreakdown, aiSmartInput }}>{children}</StoreContext.Provider>;
 };
 
 export const useStore = () => {
-  const context = useContext(StoreContext);
-  if (!context) throw new Error('useStore must be used within StoreProvider');
-  return context;
+  const c = useContext(StoreContext);
+  if (!c) throw new Error('useStore error');
+  return c;
 };
