@@ -3,24 +3,24 @@ import { AppSettings, ThemeName } from './types';
 
 export const THEMES: Record<ThemeName, { light: string; dark: string; accent: string }> = {
   Classic: {
-    light: 'bg-white text-slate-900',
-    dark: 'bg-slate-900 text-white',
+    light: 'bg-slate-50 text-slate-900',
+    dark: 'bg-slate-950 text-slate-50',
     accent: 'bg-blue-600',
   },
   Ocean: {
-    light: 'bg-cyan-50 text-cyan-950',
-    dark: 'bg-cyan-950 text-cyan-50',
-    accent: 'bg-cyan-600',
+    light: 'bg-sky-50 text-sky-950',
+    dark: 'bg-indigo-950 text-sky-50',
+    accent: 'bg-sky-500',
   },
   Forest: {
     light: 'bg-emerald-50 text-emerald-950',
-    dark: 'bg-emerald-950 text-emerald-50',
+    dark: 'bg-zinc-950 text-emerald-50',
     accent: 'bg-emerald-600',
   },
   Sunset: {
     light: 'bg-orange-50 text-orange-950',
-    dark: 'bg-stone-900 text-orange-50',
-    accent: 'bg-orange-500',
+    dark: 'bg-stone-950 text-orange-50',
+    accent: 'bg-rose-500',
   },
 };
 
@@ -31,7 +31,7 @@ export const FONTS = [
   { name: 'Playfair', value: 'font-serif' },
 ];
 
-export const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'INR', 'CAD'];
+export const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'INR', 'CAD', 'BRL', 'KRW'];
 
 export const INITIAL_SETTINGS: AppSettings = {
   theme: 'Classic',
@@ -41,6 +41,7 @@ export const INITIAL_SETTINGS: AppSettings = {
   pomodoroWork: 25,
   pomodoroBreak: 5,
   notificationsEnabled: false,
+  dashboardOrder: ['finances', 'tasks', 'events', 'notes'],
   budgets: {
     daily: 50,
     weekly: 300,

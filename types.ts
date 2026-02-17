@@ -50,6 +50,7 @@ export interface AppSettings {
   pomodoroWork: number;
   pomodoroBreak: number;
   notificationsEnabled: boolean;
+  dashboardOrder: string[];
   budgets: {
     daily: number;
     weekly: number;

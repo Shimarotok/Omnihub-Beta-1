@@ -10,29 +10,19 @@ const TasksView: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
-  // Show all tasks now
   const allTasks = state.tasks;
 
   const sortedTasks = [...allTasks].sort((a, b) => {
-    // First Priority: Completed tasks always go to the bottom
-    if (a.completed !== b.completed) {
-      return a.completed ? 1 : -1;
-    }
-
-    // Second Priority: User selected sort
+    if (a.completed !== b.completed) return a.completed ? 1 : -1;
     if (sortBy === 'date') {
       const dateA = new Date(a.dueDate).getTime();
       const dateB = new Date(b.dueDate).getTime();
       return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
     } else if (sortBy === 'title') {
-      return sortOrder === 'asc' 
-        ? a.title.localeCompare(b.title) 
-        : b.title.localeCompare(a.title);
+      return sortOrder === 'asc' ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title);
     } else {
       const pMap = { high: 3, medium: 2, low: 1 };
-      return sortOrder === 'asc' 
-        ? pMap[a.priority] - pMap[b.priority] 
-        : pMap[b.priority] - pMap[a.priority];
+      return sortOrder === 'asc' ? pMap[a.priority] - pMap[b.priority] : pMap[b.priority] - pMap[a.priority];
     }
   });
 
@@ -57,8 +47,8 @@ const TasksView: React.FC = () => {
       <header className="flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-3xl font-black text-gray-900">Task Board</h2>
-            <p className="text-sm font-medium text-gray-500">
+            <h2 className="text-3xl font-black text-gray-900 dark:text-white">Task Board</h2>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
               {allTasks.filter(t => !t.completed).length} active · {allTasks.filter(t => t.completed).length} finished
             </p>
           </div>
@@ -67,21 +57,21 @@ const TasksView: React.FC = () => {
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
           <button 
             onClick={() => toggleSort('date')}
-            className={`px-4 py-2 rounded-2xl border transition-all flex items-center gap-2 text-xs font-bold whitespace-nowrap ${sortBy === 'date' ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200' : 'bg-white border-gray-100 text-gray-400'}`}
+            className={`px-4 py-2 rounded-2xl border transition-all flex items-center gap-2 text-xs font-bold whitespace-nowrap ${sortBy === 'date' ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200' : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 text-gray-400'}`}
           >
             <Clock className="w-4 h-4" />
             By Date
           </button>
           <button 
             onClick={() => toggleSort('priority')}
-            className={`px-4 py-2 rounded-2xl border transition-all flex items-center gap-2 text-xs font-bold whitespace-nowrap ${sortBy === 'priority' ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200' : 'bg-white border-gray-100 text-gray-400'}`}
+            className={`px-4 py-2 rounded-2xl border transition-all flex items-center gap-2 text-xs font-bold whitespace-nowrap ${sortBy === 'priority' ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200' : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 text-gray-400'}`}
           >
             <AlertCircle className="w-4 h-4" />
             By Priority
           </button>
           <button 
             onClick={() => toggleSort('title')}
-            className={`px-4 py-2 rounded-2xl border transition-all flex items-center gap-2 text-xs font-bold whitespace-nowrap ${sortBy === 'title' ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200' : 'bg-white border-gray-100 text-gray-400'}`}
+            className={`px-4 py-2 rounded-2xl border transition-all flex items-center gap-2 text-xs font-bold whitespace-nowrap ${sortBy === 'title' ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg shadow-emerald-200' : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 text-gray-400'}`}
           >
             <ArrowUpDown className="w-4 h-4" />
             A-Z
@@ -101,8 +91,8 @@ const TasksView: React.FC = () => {
               key={task.id} 
               className={`rounded-[2.5rem] shadow-sm border overflow-hidden transition-all ${
                 task.completed 
-                  ? 'bg-gray-50/50 border-gray-100 opacity-60 grayscale-[0.3]' 
-                  : 'bg-white border-gray-100 hover:shadow-md'
+                  ? 'bg-gray-50/50 dark:bg-white/5 border-gray-100 dark:border-gray-800 opacity-60 grayscale-[0.3]' 
+                  : 'bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 hover:shadow-md'
               }`}
             >
               <div className="p-5 flex items-center justify-between group">
@@ -110,55 +100,54 @@ const TasksView: React.FC = () => {
                   <button 
                     onClick={() => toggleTask(task.id)}
                     className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all ${
-                      task.completed ? 'bg-emerald-500 border-emerald-500' : 'border-emerald-100 hover:border-emerald-300'
+                      task.completed ? 'bg-emerald-500 border-emerald-500' : 'border-emerald-100 dark:border-emerald-900 hover:border-emerald-300'
                     }`}
                   >
                     <div className={`w-4 h-4 rounded bg-white transition-transform ${task.completed ? 'scale-100' : 'scale-0'}`} />
                   </button>
                   <div className="flex-1 min-w-0" onClick={() => toggleExpand(task.id)}>
                     <div className="flex items-center gap-2">
-                      <h4 className={`font-bold text-gray-900 truncate ${task.completed ? 'line-through' : ''}`}>{task.title}</h4>
+                      <h4 className={`font-bold text-gray-900 dark:text-white truncate ${task.completed ? 'line-through' : ''}`}>{task.title}</h4>
                       {!task.completed && (
                         <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-full ${
-                          task.priority === 'high' ? 'bg-red-100 text-red-600' : task.priority === 'medium' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600'
+                          task.priority === 'high' ? 'bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400' : task.priority === 'medium' ? 'bg-amber-100 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400' : 'bg-blue-100 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400'
                         }`}>
                           {task.priority}
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-3 text-[10px] font-bold text-gray-400 uppercase mt-1">
+                    <div className="flex items-center gap-3 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mt-1">
                       <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(task.dueDate).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                      {totalSub > 0 && <span className={`${task.completed ? 'text-gray-400' : 'text-emerald-500'} flex items-center gap-1`}><List className="w-3 h-3" /> {completedSub}/{totalSub}</span>}
+                      {totalSub > 0 && <span className={`${task.completed ? 'text-gray-400 dark:text-gray-600' : 'text-emerald-500'} flex items-center gap-1`}><List className="w-3 h-3" /> {completedSub}/{totalSub}</span>}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => toggleExpand(task.id)} className="p-2 text-gray-300 hover:text-gray-600">
+                  <button onClick={() => toggleExpand(task.id)} className="p-2 text-gray-300 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-400">
                     {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                   </button>
                   <button 
                     onClick={() => deleteTask(task.id)}
-                    className="p-2 text-gray-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                    className="p-2 text-gray-200 dark:text-gray-800 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
                 </div>
               </div>
 
-              {/* Expandable Subtasks */}
               {isExpanded && (
                 <div className="px-5 pb-5 pt-0 animate-in slide-in-from-top-2 duration-300">
-                  <div className="h-px bg-gray-100 mb-4" />
-                  {task.description && <p className="text-sm text-gray-500 mb-4 px-2">{task.description}</p>}
+                  <div className="h-px bg-gray-100 dark:bg-gray-800 mb-4" />
+                  {task.description && <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 px-2">{task.description}</p>}
                   
                   {totalSub > 0 && (
                     <div className="space-y-2">
                       <div className="flex justify-between items-center mb-1 px-1">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Subtask Progress</span>
-                        <span className={`text-[10px] font-bold ${task.completed ? 'text-gray-400' : 'text-emerald-600'}`}>{Math.round(progress)}%</span>
+                        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Subtask Progress</span>
+                        <span className={`text-[10px] font-bold ${task.completed ? 'text-gray-400 dark:text-gray-600' : 'text-emerald-600'}`}>{Math.round(progress)}%</span>
                       </div>
-                      <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden mb-3">
-                        <div className={`h-full transition-all duration-700 ${task.completed ? 'bg-gray-300' : 'bg-emerald-500'}`} style={{ width: `${progress}%` }} />
+                      <div className="h-1 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden mb-3">
+                        <div className={`h-full transition-all duration-700 ${task.completed ? 'bg-gray-300 dark:bg-gray-700' : 'bg-emerald-500'}`} style={{ width: `${progress}%` }} />
                       </div>
                       <div className="space-y-2">
                         {task.subTasks.map(st => (
@@ -166,15 +155,15 @@ const TasksView: React.FC = () => {
                             key={st.id}
                             onClick={() => toggleSubtask(task.id, st.id)}
                             className={`w-full flex items-center gap-3 p-3 rounded-2xl border transition-all text-left ${
-                              st.completed ? 'bg-gray-100/50 border-transparent opacity-60' : 'bg-gray-50/50 hover:bg-gray-50 border-transparent hover:border-emerald-100'
+                              st.completed ? 'bg-gray-100/50 dark:bg-white/5 border-transparent opacity-60' : 'bg-gray-50/50 dark:bg-white/5 hover:bg-gray-50 dark:hover:bg-white/10 border-transparent hover:border-emerald-100'
                             }`}
                           >
                             <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${
-                              st.completed ? 'bg-emerald-500 border-emerald-500' : 'bg-white border-gray-200'
+                              st.completed ? 'bg-emerald-500 border-emerald-500' : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800'
                             }`}>
                               {st.completed && <CheckIcon className="w-3 h-3 text-white" />}
                             </div>
-                            <span className={`text-sm font-medium text-gray-700 ${st.completed ? 'line-through' : ''}`}>{st.title}</span>
+                            <span className={`text-sm font-medium text-gray-700 dark:text-gray-300 ${st.completed ? 'line-through' : ''}`}>{st.title}</span>
                           </button>
                         ))}
                       </div>
@@ -185,10 +174,10 @@ const TasksView: React.FC = () => {
             </div>
           );
         }) : (
-          <div className="bg-white/50 border-2 border-dashed border-gray-200 rounded-[3rem] p-16 text-center text-gray-400">
-            <CheckSquare className="w-16 h-16 mx-auto mb-4 text-gray-200" />
-            <h3 className="font-black text-xl text-gray-900 mb-1">Clear Horizon</h3>
-            <p className="text-sm">No tasks found. Start adding some!</p>
+          <div className="bg-white/50 dark:bg-white/5 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-[3rem] p-16 text-center text-gray-400">
+            <CheckSquare className="w-16 h-16 mx-auto mb-4 text-gray-200 dark:text-gray-800" />
+            <h3 className="font-black text-xl text-gray-900 dark:text-white mb-1">Clear Horizon</h3>
+            <p className="text-sm dark:text-gray-500">No tasks found. Start adding some!</p>
           </div>
         )}
       </div>
