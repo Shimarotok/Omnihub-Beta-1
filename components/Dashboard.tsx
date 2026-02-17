@@ -103,7 +103,7 @@ const Dashboard: React.FC<{ onNavigate: (view: string) => void }> = ({ onNavigat
     const commonProps = {
       draggable: isReordering,
       onDragStart: () => onDragStart(index),
-      onDragOver: (e: React.DragEvent) => onDragOver(e, index),
+      onDragOver: (e: React.DragEvent, index: number) => onDragOver(e, index),
       onDrop: () => onDrop(index),
       onDragEnd: () => { setDraggedIndex(null); setHoveredIndex(null); },
       onPointerDown: handleHoldStart,
@@ -272,9 +272,13 @@ const Dashboard: React.FC<{ onNavigate: (view: string) => void }> = ({ onNavigat
                 {[...state.notes].sort((a,b) => b.createdAt - a.createdAt).slice(0, 2).map(note => {
                   let checklistStats = { total: 0, completed: 0 };
                   if (note.type === 'checklist') {
-                    const items = JSON.parse(note.content || '[]');
-                    checklistStats.total = items.length;
-                    checklistStats.completed = items.filter((i: any) => i.completed).length;
+                    try {
+                      const items = JSON.parse(note.content || '[]');
+                      checklistStats.total = items.length;
+                      checklistStats.completed = items.filter((i: any) => i.completed).length;
+                    } catch (e) {
+                      checklistStats.total = 0;
+                    }
                   }
 
                   return (
@@ -320,16 +324,20 @@ const Dashboard: React.FC<{ onNavigate: (view: string) => void }> = ({ onNavigat
                             />
                           </div>
                           <div className="space-y-1.5">
-                            {JSON.parse(note.content).slice(0, 3).map((item: any) => (
-                              <div key={item.id} className="flex items-center gap-2.5">
-                                <div className={`w-3.5 h-3.5 rounded-md border flex items-center justify-center transition-all ${item.completed ? 'bg-amber-500 border-amber-500' : 'bg-white dark:bg-gray-900 border-amber-200 dark:border-amber-800'}`}>
-                                  {item.completed && <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />}
-                                </div>
-                                <span className={`text-[11px] font-bold truncate flex-1 ${item.completed ? 'line-through text-gray-400 opacity-60' : 'text-gray-700 dark:text-gray-300'}`}>
-                                  {item.title}
-                                </span>
-                              </div>
-                            ))}
+                            {(() => {
+                              try {
+                                return JSON.parse(note.content).slice(0, 3).map((item: any) => (
+                                  <div key={item.id} className="flex items-center gap-2.5">
+                                    <div className={`w-3.5 h-3.5 rounded-md border flex items-center justify-center transition-all ${item.completed ? 'bg-amber-500 border-amber-500' : 'bg-white dark:bg-gray-900 border-amber-200 dark:border-amber-800'}`}>
+                                      {item.completed && <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />}
+                                    </div>
+                                    <span className={`text-[11px] font-bold truncate flex-1 ${item.completed ? 'line-through text-gray-400 opacity-60' : 'text-gray-700 dark:text-gray-300'}`}>
+                                      {item.title}
+                                    </span>
+                                  </div>
+                                ));
+                              } catch (e) { return null; }
+                            })()}
                             {checklistStats.total > 3 && (
                               <div className="text-[9px] font-black text-amber-500/60 dark:text-amber-400/40 uppercase pl-6 pt-1">
                                 +{checklistStats.total - 3} more items

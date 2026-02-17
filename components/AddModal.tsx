@@ -1,10 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from './StoreContext';
-// Fix: Removed incorrect import from non-existent module
 import DrawingCanvas from './DrawingCanvas';
 import { Plus, Calendar, CheckSquare, FileText, DollarSign, ArrowLeft, Loader2, List, Edit3, TrendingDown, TrendingUp, Clock, X, AlertCircle, Mic, MicOff, Sparkles, Send, Trash2, Check } from 'lucide-react';
-// Fix: Import Priority from constants.ts since types.ts is empty
 import { Priority } from '../constants';
 
 type Step = 'main' | 'smart' | 'note-sub' | 'finance-sub' | 'event-form' | 'task-form' | 'note-text-form' | 'note-checklist-form' | 'note-drawing-form' | 'finance-spending-form' | 'finance-earning-form';
@@ -12,14 +10,12 @@ type Step = 'main' | 'smart' | 'note-sub' | 'finance-sub' | 'event-form' | 'task
 const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
-  // Fix: Destructure AI functions from the store
   const { addNote, addTask, addEvent, addFinance, aiBreakdown, aiSmartInput } = useStore();
   const [step, setStep] = useState<Step>('main');
   const [loading, setLoading] = useState(false);
   const [newSubTaskInput, setNewSubTaskInput] = useState('');
   const [newChecklistItemInput, setNewChecklistItemInput] = useState('');
   
-  // Smart Input State
   const [smartInputText, setSmartInputText] = useState('');
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
@@ -47,7 +43,6 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
     checklistItems: [],
   });
 
-  // Speech Recognition Setup
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
@@ -80,7 +75,6 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
   const handleSmartSubmit = async () => {
     if (!smartInputText.trim()) return;
     setLoading(true);
-    // Fix: Use aiSmartInput from store instead of defunct service
     const result = await aiSmartInput(smartInputText);
     setLoading(false);
 
@@ -124,7 +118,6 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
   const handleSmartDivide = async () => {
     if (!formData.title) return;
     setLoading(true);
-    // Fix: Use aiBreakdown from store instead of defunct service
     const subtasks = await aiBreakdown(formData.title);
     setFormData((prev: any) => ({
       ...prev,
@@ -313,7 +306,7 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
                 placeholder="Type or speak naturally..."
                 className="w-full p-6 pt-10 bg-gray-50 dark:bg-gray-800 rounded-[2.5rem] border-none ring-1 ring-gray-100 dark:ring-gray-700 focus:ring-2 focus:ring-blue-500 outline-none h-48 resize-none font-medium transition-all dark:text-white"
               />
-              {/* Conditionally render the mic button based on input text */}
+              {/* Hide mic when user has started typing manually, but keep it if listening */}
               {(smartInputText.trim() === '' || isListening) && (
                 <button 
                   onClick={toggleListening}
