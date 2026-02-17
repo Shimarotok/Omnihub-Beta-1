@@ -1,5 +1,7 @@
 {
   "name": "OmniHub: Unified Personal Dashboard",
   "description": "A comprehensive productivity app combining events, tasks, notes (text, checklists, drawings), and finances with AI-powered smart subdivision, pomodoro timer, and financial analytics.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }

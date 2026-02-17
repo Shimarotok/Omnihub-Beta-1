@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useStore } from './StoreContext';
-import { getSmartSubdivision } from '../services/geminiService';
+import { getSmartSubdivision, processSmartInput } from '../services/geminiService';
 import DrawingCanvas from './DrawingCanvas';
-import { Plus, Calendar, CheckSquare, FileText, DollarSign, ArrowLeft, Loader2, List, Edit3, TrendingDown, TrendingUp, Clock, X, AlertCircle } from 'lucide-react';
+import { Plus, Calendar, CheckSquare, FileText, DollarSign, ArrowLeft, Loader2, List, Edit3, TrendingDown, TrendingUp, Clock, X, AlertCircle, Mic, MicOff, Sparkles, Send } from 'lucide-react';
 import { Priority } from '../types';
 
-type Step = 'main' | 'note-sub' | 'finance-sub' | 'event-form' | 'task-form' | 'note-text-form' | 'note-checklist-form' | 'note-drawing-form' | 'finance-spending-form' | 'finance-earning-form';
+type Step = 'main' | 'smart' | 'note-sub' | 'finance-sub' | 'event-form' | 'task-form' | 'note-text-form' | 'note-checklist-form' | 'note-drawing-form' | 'finance-spending-form' | 'finance-earning-form';
 
 const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
@@ -15,6 +15,11 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
   const [step, setStep] = useState<Step>('main');
   const [loading, setLoading] = useState(false);
   const [newSubTaskInput, setNewSubTaskInput] = useState('');
+  
+  // Smart Input State
+  const [smartInputText, setSmartInputText] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   const getCurrentTime = (offsetHours = 0) => {
     const d = new Date();
@@ -38,6 +43,80 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
     subTasks: [],
     checklistItems: [],
   });
+
+  // Speech Recognition Setup
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setSmartInputText(prev => (prev.trim() ? prev + ' ' : '') + transcript);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onerror = () => setIsListening(false);
+      recognitionRef.current.onend = () => setIsListening(false);
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current?.start();
+      setIsListening(true);
+    }
+  };
+
+  const handleSmartSubmit = async () => {
+    if (!smartInputText.trim()) return;
+    setLoading(true);
+    const result = await processSmartInput(smartInputText);
+    setLoading(false);
+
+    if (result) {
+      // Map result to app actions
+      if (result.type === 'task') {
+        addTask({ 
+          title: result.title, 
+          description: result.description || '', 
+          dueDate: result.date ? `${result.date}T${result.dueTime || '23:59'}:00` : `${today}T23:59:00`,
+          priority: (result.priority as Priority) || 'medium',
+          category: 'General',
+          subTasks: (result.subtasks || []).map((s: string) => ({
+            id: crypto.randomUUID(),
+            title: s,
+            completed: false
+          }))
+        });
+      } else if (result.type === 'event') {
+        addEvent({
+          title: result.title,
+          description: result.description || '',
+          start: `${result.date || today}T${result.startTime || '09:00'}:00`,
+          end: `${result.date || today}T${result.endTime || '10:00'}:00`,
+        });
+      } else if (result.type === 'note') {
+        addNote({ title: result.title, type: 'text', content: result.description || '' });
+      } else if (result.type === 'finance') {
+        addFinance({
+          amount: result.amount || 0,
+          type: result.financeType || 'spending',
+          category: 'General',
+          date: result.date || today,
+          note: result.description || ''
+        });
+      }
+      onClose();
+      reset();
+    }
+  };
 
   const handleStartDateChange = (newDate: string) => {
     setFormData((prev: any) => ({
@@ -138,28 +217,103 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
       checklistItems: [] 
     });
     setNewSubTaskInput('');
+    setSmartInputText('');
   };
 
   const renderContent = () => {
     switch (step) {
       case 'main':
         return (
-          <div className="grid grid-cols-2 gap-4 p-4">
-            <button onClick={() => setStep('event-form')} className="flex flex-col items-center p-6 bg-blue-50 hover:bg-blue-100 rounded-2xl transition-all border border-blue-100 group">
-              <Calendar className="w-10 h-10 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
-              <span className="font-semibold text-blue-900">Event</span>
+          <div className="space-y-4 p-4">
+            {/* Smart Input Shortcut */}
+            <button 
+              onClick={() => setStep('smart')}
+              className="w-full bg-blue-600 p-6 rounded-[2rem] text-white flex items-center justify-between shadow-xl shadow-blue-200 group transition-all active:scale-95"
+            >
+              <div className="flex items-center gap-4">
+                <div className="bg-white/20 p-3 rounded-2xl group-hover:scale-110 transition-transform">
+                  <Sparkles className="w-6 h-6" />
+                </div>
+                <div className="text-left">
+                  <div className="font-black text-lg">Smart Input</div>
+                  <div className="text-xs text-blue-100 font-bold opacity-80 uppercase tracking-widest">Natural Language / Voice</div>
+                </div>
+              </div>
+              <Mic className="w-5 h-5 opacity-60" />
             </button>
-            <button onClick={() => setStep('task-form')} className="flex flex-col items-center p-6 bg-emerald-50 hover:bg-emerald-100 rounded-2xl transition-all border border-emerald-100 group">
-              <CheckSquare className="w-10 h-10 text-emerald-600 mb-2 group-hover:scale-110 transition-transform" />
-              <span className="font-semibold text-emerald-900">Task</span>
-            </button>
-            <button onClick={() => setStep('note-sub')} className="flex flex-col items-center p-6 bg-amber-50 hover:bg-amber-100 rounded-2xl transition-all border border-amber-100 group">
-              <FileText className="w-10 h-10 text-amber-600 mb-2 group-hover:scale-110 transition-transform" />
-              <span className="font-semibold text-amber-900">Note</span>
-            </button>
-            <button onClick={() => setStep('finance-sub')} className="flex flex-col items-center p-6 bg-purple-50 hover:bg-purple-100 rounded-2xl transition-all border border-purple-100 group">
-              <DollarSign className="w-10 h-10 text-purple-600 mb-2 group-hover:scale-110 transition-transform" />
-              <span className="font-semibold text-purple-900">Finance</span>
+
+            <div className="grid grid-cols-2 gap-4">
+              <button onClick={() => setStep('event-form')} className="flex flex-col items-center p-6 bg-blue-50 hover:bg-blue-100 rounded-2xl transition-all border border-blue-100 group">
+                <Calendar className="w-10 h-10 text-blue-600 mb-2 group-hover:scale-110 transition-transform" />
+                <span className="font-semibold text-blue-900">Event</span>
+              </button>
+              <button onClick={() => setStep('task-form')} className="flex flex-col items-center p-6 bg-emerald-50 hover:bg-emerald-100 rounded-2xl transition-all border border-emerald-100 group">
+                <CheckSquare className="w-10 h-10 text-emerald-600 mb-2 group-hover:scale-110 transition-transform" />
+                <span className="font-semibold text-emerald-900">Task</span>
+              </button>
+              <button onClick={() => setStep('note-sub')} className="flex flex-col items-center p-6 bg-amber-50 hover:bg-amber-100 rounded-2xl transition-all border border-amber-100 group">
+                <FileText className="w-10 h-10 text-amber-600 mb-2 group-hover:scale-110 transition-transform" />
+                <span className="font-semibold text-amber-900">Note</span>
+              </button>
+              <button onClick={() => setStep('finance-sub')} className="flex flex-col items-center p-6 bg-purple-50 hover:bg-purple-100 rounded-2xl transition-all border border-purple-100 group">
+                <DollarSign className="w-10 h-10 text-purple-600 mb-2 group-hover:scale-110 transition-transform" />
+                <span className="font-semibold text-purple-900">Finance</span>
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'smart':
+        return (
+          <div className="p-6 space-y-6">
+            <div className="text-center space-y-2">
+              <div className="p-4 bg-blue-50 w-fit mx-auto rounded-3xl text-blue-600">
+                <Sparkles className="w-10 h-10" />
+              </div>
+              <h3 className="text-xl font-black text-gray-900">What's on your mind?</h3>
+              <p className="text-sm text-gray-500 font-medium px-4 leading-relaxed">
+                "Add task Plan Party with subtasks Invite friends and Buy snacks"<br/>
+                "Spent 25 dollars on lunch"<br/>
+                "Dinner with Sarah at 7pm tonight"
+              </p>
+            </div>
+
+            <div className="relative group">
+              <textarea
+                value={smartInputText}
+                onChange={(e) => setSmartInputText(e.target.value)}
+                placeholder="Type or speak naturally..."
+                className="w-full p-6 pt-10 bg-gray-50 rounded-[2.5rem] border-none ring-1 ring-gray-100 focus:ring-2 focus:ring-blue-500 outline-none h-48 resize-none font-medium transition-all"
+              />
+              <button 
+                onClick={toggleListening}
+                className={`absolute top-4 right-4 p-3 rounded-2xl transition-all shadow-sm ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white text-gray-400 border border-gray-100 hover:text-blue-500'}`}
+              >
+                {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              </button>
+              {isListening && (
+                <div className="absolute top-12 right-12 bg-red-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full animate-bounce">
+                  Listening...
+                </div>
+              )}
+            </div>
+
+            <button 
+              onClick={handleSmartSubmit}
+              disabled={loading || !smartInputText.trim()}
+              className="w-full py-5 bg-gray-900 text-white rounded-[2rem] font-bold shadow-xl shadow-gray-200 flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-5 h-5" />
+                  <span>Process with Gemini</span>
+                </>
+              )}
             </button>
           </div>
         );
@@ -213,7 +367,7 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
 
       case 'note-drawing-form':
         return (
-          <div className="p-0 h-[60vh]">
+          <div className="p-0 h-[70vh]">
             <DrawingCanvas 
               onSave={(dataUrl) => {
                 addNote({ title: 'New Sketch', type: 'drawing', content: dataUrl });
@@ -226,6 +380,9 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
         );
 
       default:
+        // Filter out date/time for note types
+        const isNoteForm = step.startsWith('note-');
+
         return (
           <div className="p-4 space-y-4">
             <div>
@@ -274,51 +431,53 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {step === 'event-form' ? 'Start Date' : 'Date'}
-                </label>
-                <div className="relative">
-                  <input 
-                    type="date" 
-                    value={formData.date}
-                    onChange={(e) => handleStartDateChange(e.target.value)}
-                    className="w-full px-4 py-3 bg-gray-50 rounded-xl border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                  />
+            {!isNoteForm && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {step === 'event-form' ? 'Start Date' : 'Date'}
+                  </label>
+                  <div className="relative">
+                    <input 
+                      type="date" 
+                      value={formData.date}
+                      onChange={(e) => handleStartDateChange(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-50 rounded-xl border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                    />
+                  </div>
                 </div>
+
+                {step === 'task-form' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Due Time</label>
+                    <div className="relative">
+                      <input 
+                        type="time" 
+                        value={formData.dueTime}
+                        onChange={(e) => setFormData({...formData, dueTime: e.target.value})}
+                        className="w-full px-4 py-3 bg-gray-50 rounded-xl border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {step === 'event-form' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
+                    <div className="relative">
+                      <input 
+                        type="time" 
+                        value={formData.startTime}
+                        onChange={(e) => handleStartTimeChange(e.target.value)}
+                        className="w-full px-4 py-3 bg-gray-50 rounded-xl border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
+            )}
 
-              {step === 'task-form' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Due Time</label>
-                  <div className="relative">
-                    <input 
-                      type="time" 
-                      value={formData.dueTime}
-                      onChange={(e) => setFormData({...formData, dueTime: e.target.value})}
-                      className="w-full px-4 py-3 bg-gray-50 rounded-xl border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {step === 'event-form' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Time</label>
-                  <div className="relative">
-                    <input 
-                      type="time" 
-                      value={formData.startTime}
-                      onChange={(e) => handleStartTimeChange(e.target.value)}
-                      className="w-full px-4 py-3 bg-gray-50 rounded-xl border-none ring-1 ring-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {(step === 'event-form' || step === 'task-form') && (
+            {!isNoteForm && (step === 'event-form' || step === 'task-form') && (
               <div className="grid grid-cols-2 gap-3">
                  <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
@@ -367,10 +526,10 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
                     type="button"
                     onClick={handleSmartDivide}
                     disabled={loading || !formData.title}
-                    className="text-[10px] font-bold uppercase text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl hover:bg-blue-100 flex items-center gap-1 disabled:opacity-50"
+                    className="text-[10px] font-bold uppercase text-blue-600 bg-blue-50 px-3 py-1.5 rounded-xl hover:bg-blue-100 flex items-center gap-1 disabled:opacity-50 transition-colors"
                   >
                     {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <AlertCircle className="w-3 h-3" />}
-                    Smart Split
+                    Smart Split (AI)
                   </button>
                 </div>
                 
@@ -386,23 +545,23 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
                   <button 
                     type="button" 
                     onClick={addManualSubTask}
-                    className="p-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600"
+                    className="p-2 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 transition-colors"
                   >
                     <Plus className="w-5 h-5" />
                   </button>
                 </div>
 
                 {formData.subTasks.length > 0 && (
-                  <ul className="space-y-1 bg-gray-50 p-3 rounded-2xl border border-gray-100 max-h-40 overflow-y-auto">
+                  <ul className="space-y-1 bg-gray-50 p-3 rounded-2xl border border-gray-100 max-h-40 overflow-y-auto scrollbar-hide">
                     {formData.subTasks.map((st: any) => (
-                      <li key={st.id} className="text-sm text-gray-600 flex items-center justify-between gap-2 p-1.5 bg-white rounded-lg border border-gray-50 group">
+                      <li key={st.id} className="text-sm text-gray-600 flex items-center justify-between gap-2 p-1.5 bg-white rounded-lg border border-gray-50 group transition-all">
                         <div className="flex items-center gap-2 truncate">
                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full flex-shrink-0" />
                            <span className="truncate">{st.title}</span>
                         </div>
                         <button 
                           onClick={() => removeSubTask(st.id)}
-                          className="text-gray-300 hover:text-red-500"
+                          className="text-gray-300 hover:text-red-500 transition-colors"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -417,7 +576,7 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
               onClick={handleSave}
               className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all"
             >
-              Save
+              Save Entry
             </button>
           </div>
         );
@@ -426,22 +585,21 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4" onClick={(e) => {
-      // Close modal if background is clicked
       if (e.target === e.currentTarget) onClose();
     }}>
-      <div className="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col max-h-[95vh] animate-in slide-in-from-bottom duration-300" onClick={(e) => e.stopPropagation()}>
         <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
           {step !== 'main' ? (
-            <button onClick={() => setStep('main')} className="p-2 hover:bg-gray-100 rounded-full">
+            <button onClick={() => setStep('main')} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
               <ArrowLeft className="w-6 h-6 text-gray-500" />
             </button>
           ) : <div className="w-10" />}
-          <h2 className="font-bold text-lg">Add New</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
-            <Plus className="w-6 h-6 text-gray-500 rotate-45" />
+          <h2 className="font-bold text-lg">{step === 'main' ? 'Add New' : step === 'smart' ? 'Smart Input' : 'Create Entry'}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <X className="w-6 h-6 text-gray-500" />
           </button>
         </div>
-        <div className="overflow-y-auto flex-1">
+        <div className="overflow-y-auto flex-1 bg-white">
           {renderContent()}
         </div>
       </div>
