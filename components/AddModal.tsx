@@ -313,12 +313,15 @@ const AddModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, 
                 placeholder="Type or speak naturally..."
                 className="w-full p-6 pt-10 bg-gray-50 dark:bg-gray-800 rounded-[2.5rem] border-none ring-1 ring-gray-100 dark:ring-gray-700 focus:ring-2 focus:ring-blue-500 outline-none h-48 resize-none font-medium transition-all dark:text-white"
               />
-              <button 
-                onClick={toggleListening}
-                className={`absolute top-4 right-4 p-3 rounded-2xl transition-all shadow-sm ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white dark:bg-gray-700 text-gray-400 dark:text-gray-300 border border-gray-100 dark:border-gray-600 hover:text-blue-500'}`}
-              >
-                {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-              </button>
+              {/* Conditionally render the mic button based on input text */}
+              {(smartInputText.trim() === '' || isListening) && (
+                <button 
+                  onClick={toggleListening}
+                  className={`absolute top-4 right-4 p-3 rounded-2xl transition-all shadow-sm ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-white dark:bg-gray-700 text-gray-400 dark:text-gray-300 border border-gray-100 dark:border-gray-600 hover:text-blue-500'} animate-in fade-in duration-300`}
+                >
+                  {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                </button>
+              )}
               {isListening && (
                 <div className="absolute top-12 right-12 bg-red-500 text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full animate-bounce">
                   Listening...
