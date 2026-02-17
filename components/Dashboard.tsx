@@ -30,6 +30,16 @@ const Dashboard: React.FC<{ onNavigate: (view: string) => void }> = ({ onNavigat
 
   const formatTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+  const getTimeAgo = (timestamp: number) => {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
+
   // Rearrangement Logic
   const handleHoldStart = (e: React.PointerEvent) => {
     if (isReordering) return;
@@ -84,7 +94,6 @@ const Dashboard: React.FC<{ onNavigate: (view: string) => void }> = ({ onNavigat
     const isDragging = draggedIndex === index;
     const isHovered = hoveredIndex === index;
     
-    // Base styles for all panels - unified full width
     const panelBaseClasses = `w-full bg-white dark:bg-gray-900 p-6 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col group transition-all duration-300 relative ${
       isReordering ? 'cursor-grab active:cursor-grabbing' : 'active:scale-[0.98]'
     } ${isDragging ? 'opacity-30 scale-95 grayscale' : ''} ${
@@ -259,46 +268,88 @@ const Dashboard: React.FC<{ onNavigate: (view: string) => void }> = ({ onNavigat
                 </div>
                 {!isReordering && <ChevronRight className="w-5 h-5 text-gray-300 dark:text-gray-700 group-hover:text-blue-500" />}
               </div>
-              <div className="space-y-4">
-                {[...state.notes].sort((a,b) => b.createdAt - a.createdAt).slice(0, 2).map(note => (
-                  <div 
-                    key={note.id} 
-                    className="p-4 rounded-[1.5rem] bg-gray-50/50 dark:bg-white/5 border border-transparent group-hover:border-gray-100 dark:group-hover:border-gray-800 text-left overflow-hidden transition-colors"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      {note.type === 'checklist' ? <List className="w-3 h-3 text-amber-500" /> : note.type === 'drawing' ? <ImageIcon className="w-3 h-3 text-amber-500" /> : <FileText className="w-3 h-3 text-amber-500" />}
-                      <div className="font-black text-[10px] truncate text-gray-400 dark:text-gray-500 uppercase tracking-widest">{note.title || 'Untitled'}</div>
-                    </div>
+              <div className="grid grid-cols-1 gap-4">
+                {[...state.notes].sort((a,b) => b.createdAt - a.createdAt).slice(0, 2).map(note => {
+                  let checklistStats = { total: 0, completed: 0 };
+                  if (note.type === 'checklist') {
+                    const items = JSON.parse(note.content || '[]');
+                    checklistStats.total = items.length;
+                    checklistStats.completed = items.filter((i: any) => i.completed).length;
+                  }
 
-                    {note.type === 'drawing' ? (
-                      <div className="h-20 bg-white dark:bg-gray-800 rounded-xl overflow-hidden border border-gray-100 dark:border-gray-700 flex items-center justify-center">
-                        <img src={note.content} alt="Note Preview" className="h-full object-contain" />
-                      </div>
-                    ) : note.type === 'checklist' ? (
-                      <div className="space-y-1 mt-1">
-                        {JSON.parse(note.content).slice(0, 3).map((item: any) => (
-                          <div key={item.id} className="flex items-center gap-2 text-[11px] font-bold">
-                            <div className={`w-2.5 h-2.5 rounded-[3px] border ${item.completed ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300 dark:border-gray-600'}`}>
-                              {item.completed && <Check className="w-2 h-2 text-white" strokeWidth={4} />}
-                            </div>
-                            <span className={`truncate ${item.completed ? 'line-through text-gray-400 opacity-50' : 'text-gray-600 dark:text-gray-400'}`}>{item.title}</span>
+                  return (
+                    <div 
+                      key={note.id} 
+                      className="group/note p-4 rounded-[2rem] bg-amber-50/30 dark:bg-amber-900/5 border border-amber-100/50 dark:border-amber-800/20 text-left relative transition-all hover:bg-white dark:hover:bg-gray-800 hover:shadow-lg hover:shadow-amber-500/5"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                            {note.type === 'checklist' ? (
+                              <List className="w-3.5 h-3.5 text-amber-500" />
+                            ) : note.type === 'drawing' ? (
+                              <ImageIcon className="w-3.5 h-3.5 text-amber-500" />
+                            ) : (
+                              <FileText className="w-3.5 h-3.5 text-amber-500" />
+                            )}
                           </div>
-                        ))}
-                        {JSON.parse(note.content).length > 3 && (
-                          <div className="text-[9px] font-black text-gray-300 dark:text-gray-600 uppercase mt-1">+{JSON.parse(note.content).length - 3} more items</div>
-                        )}
+                          <div className="font-black text-[11px] truncate text-gray-900 dark:text-white uppercase tracking-tight max-w-[120px]">
+                            {note.title || 'Untitled'}
+                          </div>
+                        </div>
+                        <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest bg-white/50 dark:bg-black/20 px-2 py-0.5 rounded-full">
+                          {getTimeAgo(note.createdAt)}
+                        </span>
                       </div>
-                    ) : (
-                      <div className="text-[11px] font-medium text-gray-600 dark:text-gray-400 line-clamp-3 leading-relaxed">
-                        {note.content}
-                      </div>
-                    )}
-                  </div>
-                ))}
+
+                      {note.type === 'drawing' ? (
+                        <div className="relative h-28 bg-white dark:bg-gray-800 rounded-2xl overflow-hidden border border-amber-100 dark:border-amber-900/40 shadow-inner group-hover/note:scale-[1.02] transition-transform">
+                          <img src={note.content} alt="Sketch" className="w-full h-full object-contain p-2" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent pointer-events-none" />
+                        </div>
+                      ) : note.type === 'checklist' ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase mb-1">
+                            <span>Checklist</span>
+                            <span>{checklistStats.completed}/{checklistStats.total}</span>
+                          </div>
+                          <div className="h-1 w-full bg-amber-100 dark:bg-amber-900/40 rounded-full overflow-hidden mb-3">
+                            <div 
+                              className="h-full bg-amber-500 transition-all duration-500" 
+                              style={{ width: `${(checklistStats.completed / (checklistStats.total || 1)) * 100}%` }} 
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            {JSON.parse(note.content).slice(0, 3).map((item: any) => (
+                              <div key={item.id} className="flex items-center gap-2.5">
+                                <div className={`w-3.5 h-3.5 rounded-md border flex items-center justify-center transition-all ${item.completed ? 'bg-amber-500 border-amber-500' : 'bg-white dark:bg-gray-900 border-amber-200 dark:border-amber-800'}`}>
+                                  {item.completed && <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />}
+                                </div>
+                                <span className={`text-[11px] font-bold truncate flex-1 ${item.completed ? 'line-through text-gray-400 opacity-60' : 'text-gray-700 dark:text-gray-300'}`}>
+                                  {item.title}
+                                </span>
+                              </div>
+                            ))}
+                            {checklistStats.total > 3 && (
+                              <div className="text-[9px] font-black text-amber-500/60 dark:text-amber-400/40 uppercase pl-6 pt-1">
+                                +{checklistStats.total - 3} more items
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-[12px] font-medium text-gray-600 dark:text-gray-400 line-clamp-4 leading-relaxed bg-white/50 dark:bg-black/10 p-3 rounded-xl border border-amber-100/30 dark:border-amber-900/20 italic">
+                          "{note.content}"
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                 {state.notes.length === 0 && (
-                   <div className="bg-gray-50 dark:bg-white/5 p-6 rounded-[2rem] border-2 border-dashed border-gray-200 dark:border-gray-800 text-center">
-                     <FileText className="w-6 h-6 text-gray-300 dark:text-gray-700 mx-auto mb-2" />
-                     <p className="text-xs font-bold text-gray-400 dark:text-gray-600 uppercase tracking-widest">No Notes Yet</p>
+                   <div className="bg-gray-50/50 dark:bg-white/5 p-10 rounded-[2.5rem] border-2 border-dashed border-gray-100 dark:border-gray-800 text-center">
+                     <FileText className="w-8 h-8 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+                     <p className="text-xs font-black text-gray-400 dark:text-gray-600 uppercase tracking-widest">No Notes Found</p>
+                     <p className="text-[10px] text-gray-300 dark:text-gray-700 font-bold uppercase mt-1">Add your first inspiration</p>
                    </div>
                 )}
               </div>
@@ -346,7 +397,6 @@ const Dashboard: React.FC<{ onNavigate: (view: string) => void }> = ({ onNavigat
         </div>
       )}
 
-      {/* Unified grid: all panels are col-span-6 */}
       <div className="grid grid-cols-6 gap-6">
         {order.map((type, index) => renderPanel(type, index))}
       </div>
